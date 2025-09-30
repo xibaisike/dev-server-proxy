@@ -1,0 +1,26 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "dsp": "./cli.js"
+  },
+  "dependencies": {
+    "common": "*",
+    "http-proxy": "^1.18.1"
+  },
+  "devDependencies": {
+    "@types/http-proxy": "^1.17.16",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "dev": "tsx src/services/proxy-server.ts",
+    "build": "esbuild src/services/proxy-server.ts --bundle --platform=node --outfile=dist/proxy-server.js",
+    "start": "node dist/proxy-server.js",
+    "test": "jest"
+  }
+}

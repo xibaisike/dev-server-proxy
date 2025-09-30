@@ -1,0 +1,10 @@
+{
+  "name": "common",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild --bundle src/index.ts --platform=node --outfile=dist/index.js",
+    "test": "jest"
+  }
+}

@@ -1,0 +1,1 @@
+export default { port: 12345, locations: [] }
