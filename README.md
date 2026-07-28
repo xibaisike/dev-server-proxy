@@ -1,166 +1,141 @@
-# dev-server-proxy
+# dev-server-proxy (Rust Rewrite)
 
-## Proxy for web development  
+A lightweight HTTP proxy server for web development, written in Rust. This is a rewrite of the original Node.js/TypeScript version for better performance and minimal dependencies.
 
-Proxying some URLs can be useful when you have a separate API backend development server and you want to send API requests on the same domain.
+## Features
 
-With a backend on https://copilot.ai, you can use this to enable proxying:
+- **Nginx-like location matching** - Support for exact, prefix, and regex-based URL matching
+- **Path rewriting** - Flexible path transformation using regex patterns
+- **HTML content injection** - Inject scripts or styles into HTML responses
+- **WebSocket support** - Optional WebSocket proxy configuration
+- **Logging** - Comprehensive request logging to file and console
+- **Configuration** - JSON or TOML configuration files
 
-```javascript
-export default {
-  server_name: 'https://dev-copilot.ai',
-  defaultTarget: 'http://localhost:8080'
-}
-```
-A request to http://localhost:8080/api/users will now proxy the request to https://copilot.ai/api/users
+## Building
 
-
-If you don't want /api to be passed along, we need to rewrite the path:
-
-```javascript
-const DEV_HOST = 'http://localhost:8080';
-export default {
-  server_name: 'https://dev-copilot.ai',
-  defaultTarget: DEV_HOST,
-  locations: [
-    {
-      rule: '^~ /api',
-      target: DEV_HOST,
-      pathRewrite: { '^/api': '' },
-    }
-  ]
-}
+```bash
+cargo build --release
 ```
 
-## 配置文件说明（.njs）
+The binary will be located at `target/release/dsp`
 
-dev-server-proxy 通过 njs 配置文件（推荐命名为 `proxy.config.njs`）实现灵活的本地到远端代理，支持类似 nginx 的 location 匹配规则。
+## Installation
 
-### 配置文件结构
+```bash
+cargo install --path .
+```
 
-```javascript
-export default {
-  /**
-   * server_name: 虚拟服务域名，仅用于标识
-   */
-  server_name: 'https://dev-pai.test.com',
+## Usage
 
-  /**
-   * defaultTarget: 默认代理目标，所有未被 locations 匹配的请求都将代理到此
-   */
-  defaultTarget: 'http://localhost:8080',
+### Start proxy server
 
-  /**
-   * websocket: 可选，websocket 代理目标
-   */
-  websocket: {
-    target: 'wss://ws.example.com'
+```bash
+dsp proxy.config.json
+dsp start proxy.config.json --port 3000
+```
+
+### View logs
+
+```bash
+dsp log
+dsp log --lines 50
+```
+
+### Help
+
+```bash
+dsp help
+```
+
+## Configuration
+
+Create a `proxy.config.json` file:
+
+```json
+{
+  "server_name": "https://dev-example.com",
+  "default_target": "http://localhost:8080",
+  "port": 8000,
+  "websocket": {
+    "target": "wss://ws.example.com"
   },
-
-  /**
-   * locations: 路由规则数组，按顺序匹配
-   */
-  locations: [
+  "locations": [
     {
-      rule: '= /', // 精确匹配
-      target: 'http://localhost:8080/index.html',
-      inject: `\n<script>window.globalConfig = {base: "http://localhost:8888/"}</script>\n`, // 可选，注入 HTML 片段
+      "rule": "= /",
+      "target": "http://localhost:8080/index.html",
+      "inject": "<script>window.API_BASE='/api'</script>"
     },
     {
-      rule: '^~ /api', // 前缀匹配
-      target: 'http://localhost:8080',
-      pathRewrite: { '^/api': '' }, // 可选，路径重写
+      "rule": "^~ /api",
+      "target": "http://localhost:5000",
+      "path_rewrite": {
+        "^/api": ""
+      }
     },
     {
-      rule: '~ \\.ipynb$', // 正则匹配（区分大小写）
-      target: 'http://localhost:8080',
-      pathRewrite: { '^/.*$': '/index.html' },
+      "rule": "~* \\.(js|css)$",
+      "target": "http://localhost:8080"
     },
     {
-      rule: '~* \\.(css|js)$', // 正则匹配（不区分大小写）
-      target: 'http://localhost:8080',
-    },
-    {
-      rule: '/', // 默认前缀
-      target: 'http://localhost:8080',
+      "rule": "/",
+      "target": "http://localhost:8080"
     }
   ]
 }
 ```
 
-### 规则说明
+### Configuration Options
 
-- `= /path`：精确匹配
-- `^~ /prefix`：前缀匹配
-- `~ regex`：正则匹配（区分大小写）
-- `~* regex`：正则匹配（不区分大小写）
-- `/`：默认前缀匹配
+- **server_name** - Virtual server name (for identification)
+- **default_target** - Default proxy target URL
+- **port** - Port to listen on (default: 8080)
+- **websocket** - Optional WebSocket proxy configuration
+- **locations** - Array of location matching rules
 
-location 匹配按顺序，命中即停止。
+### Location Matching Rules
 
-#### 字段说明
+Rules are processed in order following nginx priority:
 
-- `rule`：匹配规则，支持上述 nginx-like 语法
-- `target`：代理目标地址
-- `inject`：可选，若为 HTML 请求可注入脚本片段
-- `pathRewrite`：可选，路径重写规则，键为正则表达式，值为替换字符串
+1. **Exact match**: `= /path` - Match exact path
+2. **Prefix strict**: `^~ /prefix` - Match prefix with highest priority
+3. **Regex sensitive**: `~ pattern` - Match regex (case-sensitive)
+4. **Regex insensitive**: `~* pattern` - Match regex (case-insensitive)
+5. **Prefix match**: `/path` or `/` - Match prefix (lowest priority)
 
-### 完整示例
+## Development
 
-```javascript
-const DEV_HOST = 'http://localhost:8080';
-const API_HOST = 'https://api.example.com';
-export default {
-  server_name: 'https://dev.example.com',
-  defaultTarget: DEV_HOST,
-  websocket: {
-    target: 'wss://ws.example.com'
-  },
-  locations: [
-    {
-      rule: '= /',
-      target: `${DEV_HOST}/index.html`,
-      inject: `\n<script>window.globalConfig = {base: "http://localhost:8888/"}</script>\n`,
-    },
-    {
-      rule: '^~ /api',
-      target: API_HOST,
-      pathRewrite: { '^/api': '' },
-    },
-    {
-      rule: '~* \\.(css|js|png)$',
-      target: DEV_HOST,
-    },
-    {
-      rule: '/',
-      target: DEV_HOST
-    }
-  ]
-}
+### Run tests
+
+```bash
+cargo test
 ```
 
-### 使用方法
+### Run with debug logging
 
-1. 在项目根目录创建 `proxy.config.njs`，内容参考上方示例。
-2. 启动代理服务：
-
-   ```sh
-   dsp ./proxy.config.njs
-   ```
-
-3. 访问本地服务，所有请求将按配置自动代理。
-
----
-...existing code...
-
-
-## Install & Launch
-
-```
-npm i -g @dorado/dev-server-proxy
+```bash
+RUST_LOG=debug cargo run -- proxy.config.json
 ```
 
-```
-dsp ./proxy.njs
-```
+## Performance
 
+Compared to the Node.js version:
+- ✅ Significantly lower memory footprint
+- ✅ Better throughput with async/await using tokio
+- ✅ Single binary - no runtime dependencies
+- ✅ Cross-platform compilation support
+
+## Architecture
+
+- **main.rs** - Entry point and CLI setup
+- **cli.rs** - Command-line interface and argument parsing
+- **config.rs** - Configuration loading and parsing
+- **matcher.rs** - Location matching engine
+- **proxy.rs** - Proxy request building and response handling
+- **rewrite.rs** - Path rewriting logic
+- **server.rs** - HTTP server implementation
+- **logger.rs** - Logging and event tracking
+- **types.rs** - Shared data structures
+
+## License
+
+MIT
