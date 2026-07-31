@@ -4,7 +4,6 @@ use std::path::PathBuf;
 
 use crate::config::Config;
 use crate::server::start_server;
-use crate::logger;
 
 #[derive(Parser, Debug)]
 #[command(name = "dsp")]
@@ -27,7 +26,7 @@ struct CliArgs {
 }
 
 #[derive(Subcommand, Debug)]
-enum Command {
+pub(crate) enum Command {
     /// Start proxy server with config file
     Start {
         /// Path to config file
@@ -39,9 +38,6 @@ enum Command {
         port: Option<u16>,
     },
 
-    /// Show help information
-    Help,
-
     /// View proxy logs
     Log {
         /// Number of lines to show
@@ -51,7 +47,7 @@ enum Command {
 }
 
 pub struct Args {
-    pub command: Option<Command>,
+    pub(crate) command: Option<Command>,
     pub config: Option<PathBuf>,
     pub port: Option<u16>,
     pub log_level: String,
@@ -69,10 +65,6 @@ impl Args {
     }
 }
 
-pub fn parse_args() -> Args {
-    Args::parse_from_clap()
-}
-
 pub async fn execute(args: Args) -> Result<()> {
     match args.command {
         Some(Command::Start { config, port }) => {
@@ -81,10 +73,6 @@ pub async fn execute(args: Args) -> Result<()> {
                 config.port = port;
             }
             start_server(config).await
-        }
-        Some(Command::Help) => {
-            print_help();
-            Ok(())
         }
         Some(Command::Log { lines }) => {
             show_logs(lines)?;

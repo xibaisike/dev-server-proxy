@@ -3,11 +3,14 @@ use chrono::Local;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use tracing_subscriber::filter::EnvFilter;
+use std::sync::{Arc, Mutex, OnceLock};
+use tracing_subscriber::EnvFilter;
 
-static LOG_FILE: once_cell::sync::Lazy<Arc<Mutex<Option<std::fs::File>>>> =
-    once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(None)));
+static LOG_FILE: OnceLock<Arc<Mutex<Option<std::fs::File>>>> = OnceLock::new();
+
+fn log_file() -> &'static Arc<Mutex<Option<std::fs::File>>> {
+    LOG_FILE.get().expect("LOG_FILE not initialized")
+}
 
 pub fn init(log_level: &str) {
     let filter = match log_level.to_lowercase().as_str() {
@@ -30,8 +33,7 @@ pub fn init(log_level: &str) {
         .append(true)
         .open(&log_path)
     {
-        let mut log_file = LOG_FILE.lock().unwrap();
-        *log_file = Some(file);
+        let _ = LOG_FILE.set(Arc::new(Mutex::new(Some(file))));
     }
 }
 
@@ -41,7 +43,7 @@ pub fn log_event(event: &LogEvent) {
         event.timestamp, event.event, event.req_path, event.proxy_path, event.status
     );
 
-    if let Ok(mut log_file) = LOG_FILE.lock() {
+    if let Ok(mut log_file) = log_file().lock() {
         if let Some(ref mut file) = *log_file {
             let _ = file.write_all(line.as_bytes());
             let _ = file.flush();

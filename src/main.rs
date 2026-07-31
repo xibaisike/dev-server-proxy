@@ -8,11 +8,10 @@ mod server;
 mod types;
 
 use anyhow::Result;
-use clap::Parser;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = cli::Args::parse();
+    let args = cli::Args::parse_from_clap();
     
     // Initialize logging
     logger::init(&args.log_level);

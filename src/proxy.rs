@@ -1,7 +1,5 @@
 use anyhow::Result;
-use http::{Request, Response, StatusCode, Uri};
-use http_body_util::{BodyExt, Full};
-use hyper::body::Bytes;
+use http::Uri;
 use std::str::FromStr;
 use url::Url;
 
